@@ -1,0 +1,38 @@
+[
+  {
+    "_fixture": "FIXTURE DE TESTE: registros SINTÉTICOS; os nomes de campos são SUPOSIÇÕES a validar contra o dicionário oficial do feed.",
+    "case_number": "H-TESTE-0001",
+    "job_title": "Landscape Laborer (TESTE)",
+    "employer_business_name": "Empresa de Teste Paisagismo LLC",
+    "worksite_city": "Cidade Teste",
+    "worksite_state": "CO",
+    "basic_rate_from": "17.50",
+    "pay_unit": "Hour",
+    "housing_info": "Employer provides housing at no cost to workers",
+    "transportation_info": "Inbound and outbound transportation reimbursed per DOL rules",
+    "begin_date": "2027-04-01",
+    "end_date": "2027-10-31",
+    "total_positions": 8,
+    "education_level": "None",
+    "experience_months": 0,
+    "job_duties": "Mow lawns, plant shrubs and maintain grounds."
+  },
+  {
+    "case_number": "H-TESTE-0002",
+    "job_title": "Housekeeper (TESTE)",
+    "employer_business_name": "Hotel de Teste Inc",
+    "worksite_city": "Outra Cidade",
+    "worksite_state": "FL",
+    "basic_rate_from": "15.00",
+    "pay_unit": "Hour",
+    "begin_date": "2027-03-01",
+    "end_date": "2027-09-30",
+    "total_positions": 3,
+    "experience_months": 12,
+    "campo_novo_desconhecido": "valor que o mapeamento ainda não conhece"
+  },
+  {
+    "job_title": "Registro sem número de caso (TESTE)",
+    "employer_business_name": "Sem Id Ltda"
+  }
+]

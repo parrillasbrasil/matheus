@@ -1,0 +1,104 @@
+# Global Opportunity Radar: produção (VPS com Docker Compose ou Coolify).
+# Variáveis: copie .env.example para .env (Coolify: aba Environment Variables). Nenhuma credencial fica neste arquivo.
+name: radar
+
+x-collector: &collector
+  build: { context: ., dockerfile: collector/Dockerfile, target: runtime }
+  image: radar-collector:local
+  networks: [internal]
+  environment: &collector-env
+    DATABASE_URL: postgresql://radar:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@db:5432/radar
+    RADAR_CONTACT: ${RADAR_CONTACT:-}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    OPENAI_MODEL: ${OPENAI_MODEL:-}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
+    TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    SMTP_HOST: ${SMTP_HOST:-}
+    SMTP_PORT: ${SMTP_PORT:-}
+    SMTP_USER: ${SMTP_USER:-}
+    SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    SMTP_FROM: ${SMTP_FROM:-}
+    SMTP_TO: ${SMTP_TO:-}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: radar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: radar
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U radar -d radar"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [internal]          # o banco NÃO é publicado no host
+
+  # Roda uma vez a cada deploy: aplica migrations e sincroniza o config.yaml com o banco.
+  migrate:
+    <<: *collector
+    restart: "no"
+    command: ["sh", "-c", "radar migrate && radar sync"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  # Loop 24/7: agenda coletas, executa jobs (retry/DLQ), fecha vencidas, envia alertas.
+  worker:
+    <<: *collector
+    restart: unless-stopped
+    command: ["radar", "worker"]
+    stop_grace_period: 60s
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "radar", "healthcheck", "--max-age", "900"]
+      interval: 60s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
+  web:
+    build: { context: ., dockerfile: web/Dockerfile, target: runtime }
+    image: radar-web:local
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://radar:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@db:5432/radar
+      ADMIN_USER: ${ADMIN_USER:?defina ADMIN_USER no .env}
+      ADMIN_PASSWORD_HASH: "${ADMIN_PASSWORD_HASH:?gere o hash com npm run hash-password (veja o README)}"
+      SESSION_SECRET: ${SESSION_SECRET:?defina SESSION_SECRET (mínimo 32 caracteres) no .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"   # só localhost; exponha com HTTPS pelo proxy do Coolify (ou nginx/caddy)
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [internal]
+
+  # Backup diário (pg_dump) com retenção: docker compose --profile backup up -d backup
+  backup:
+    profiles: [backup]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://radar:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@db:5432/radar
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+      - backups:/backups
+    entrypoint: ["sh", "-c", "apk add --no-cache bash > /dev/null && exec bash /usr/local/bin/backup.sh"]
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+
+networks:
+  internal: {}
+
+volumes:
+  pgdata: {}
+  backups: {}

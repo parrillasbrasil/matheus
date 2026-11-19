@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+.git
+.env
+.env.*
+!.env.example
+web/next-env.d.ts
+**/*.tsbuildinfo
+docs

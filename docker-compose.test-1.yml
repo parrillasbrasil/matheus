@@ -1,0 +1,39 @@
+# Testes em ambiente ISOLADO: rede interna sem saída para a internet, banco descartável em memória.
+#   docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from collector-tests
+#   docker compose -f docker-compose.test.yml run --rm web-tests
+#   docker compose -f docker-compose.test.yml down -v
+# As imagens são construídas COM acesso à rede (instalam dependências); a execução dos testes roda SEM.
+name: radar-test
+
+services:
+  db-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [isolated]
+
+  collector-tests:
+    build: { context: ., dockerfile: collector/Dockerfile, target: test }
+    environment:
+      RADAR_TEST_DATABASE_URL: postgresql://postgres@db-test:5432/postgres
+    depends_on:
+      db-test: { condition: service_healthy }
+    networks: [isolated]
+
+  web-tests:
+    build: { context: ., dockerfile: web/Dockerfile, target: test }
+    environment:
+      RADAR_TEST_DATABASE_URL: postgresql://postgres@db-test:5432/postgres
+    depends_on:
+      db-test: { condition: service_healthy }
+    networks: [isolated]
+
+networks:
+  isolated:
+    internal: true

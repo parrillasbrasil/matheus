@@ -1,0 +1,51 @@
+@import "tailwindcss";
+@import "@fontsource-variable/public-sans";
+@import "@fontsource-variable/bricolage-grotesque";
+
+/*
+  Direção visual: carta náutica / mesa de cartógrafo. Papel frio, tinta azul-marinho, três cores de veredito
+  que significam sempre a mesma coisa (pinho = elegível, âmbar = precisa confirmar, tijolo = inelegível).
+  Dado de TESTE usa hachura diagonal violeta; origem DESCONHECIDA usa borda tracejada. Nada disso é decoração:
+  é o que impede que um dado de teste seja confundido com uma oportunidade real.
+*/
+@theme {
+  --font-sans: "Public Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Public Sans Variable", ui-sans-serif, sans-serif;
+  --color-paper: #f3f5f7;
+  --color-sheet: #ffffff;
+  --color-ink: #17233b;
+  --color-ink-soft: #52607a;
+  --color-rule: #cbd3de;
+  --color-rule-soft: #e3e8ef;
+  --color-eligible: #1b6f52;
+  --color-eligible-bg: #e3f2ec;
+  --color-confirm: #8a5a00;
+  --color-confirm-bg: #fbefd2;
+  --color-inelig: #9b2f2f;
+  --color-inelig-bg: #f7e1e1;
+  --color-test: #5b34b0;
+  --color-test-bg: #ece6f8;
+  --color-link: #0a5c9e;
+}
+
+@layer base {
+  html { background: var(--color-paper); color: var(--color-ink); }
+  body { font-family: var(--font-sans); font-size: 15px; line-height: 1.5; font-feature-settings: "tnum" 1; }
+  a { color: var(--color-link); text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 3px solid var(--color-link); outline-offset: 2px; border-radius: 2px; }
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+}
+
+@layer components {
+  .hatch-test { background-image: repeating-linear-gradient(135deg, transparent 0 7px, rgb(91 52 176 / 0.09) 7px 9px); }
+  .dashed-unknown { outline: 2px dashed var(--color-ink-soft); outline-offset: -2px; }
+  .field { width: 100%; min-width: 0; border: 1px solid var(--color-rule); background: var(--color-sheet); padding: 0.45rem 0.6rem; border-radius: 3px; min-height: 2.5rem; }
+  .btn { display: inline-flex; align-items: center; gap: .4rem; min-height: 2.5rem; padding: 0 .9rem; border-radius: 3px; border: 1px solid var(--color-ink); background: var(--color-ink); color: #fff; font-weight: 600; cursor: pointer; }
+  .btn:hover { background: #24365a; }
+  .btn-quiet { background: transparent; color: var(--color-ink); border-color: var(--color-rule); }
+  .btn-quiet:hover { background: var(--color-rule-soft); }
+  .tbl th { text-align: left; font-weight: 600; color: var(--color-ink-soft); padding: .5rem .75rem; border-bottom: 1px solid var(--color-rule); font-size: 13px; }
+  .tbl td { padding: .65rem .75rem; border-bottom: 1px solid var(--color-rule-soft); vertical-align: top; }
+}

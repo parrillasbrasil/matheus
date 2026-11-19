@@ -1,0 +1,13 @@
+{
+  "name": "global-opportunity-radar",
+  "private": true,
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=radar-web",
+    "build": "npm run build --workspace=radar-web",
+    "start": "npm run start --workspace=radar-web",
+    "lint": "npm run typecheck --workspace=radar-web"
+  }
+}
