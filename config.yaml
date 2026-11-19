@@ -1,0 +1,436 @@
+# =====================================================================
+# Global Opportunity Radar — config.yaml  (FONTE ÚNICA de regras e filtros)
+#
+# * O loader (collector/radar/config.py) REJEITA qualquer campo desconhecido.
+# * Nada aqui é lido de variável de ambiente, exceto NOMES de variáveis
+#   (ex.: api_key_env). Segredos ficam só no ambiente (.env / Coolify).
+# * Regras de programas citam a fonte oficial e o trecho que as sustenta.
+# * Itens marcados "REVISAR" dependem de verificação humana periódica.
+# =====================================================================
+version: 1
+
+# ---------------------------------------------------------------------
+# Perfil do candidato (dados informados pelo responsável; sem documentos)
+# ---------------------------------------------------------------------
+profile:
+  label: candidato-principal
+  age_years: 20
+  age_as_of: 2026-11-19          # data em que a idade foi informada
+  nationalities: [BR, IT]        # cidadania brasileira e italiana
+  residence_country: BR          # reside no Brasil (NÃO em país da UE)
+  employed: true
+  education: high_school_complete
+  languages:                     # nativo | A1..C2 | unknown
+    pt: native
+    en: B1
+    it: unknown
+    es: unknown
+    de: unknown
+    fr: unknown
+  work_experience_months: null   # desconhecido: requisitos de experiência => confirmar
+
+# ---------------------------------------------------------------------
+# Dados de referência
+# ---------------------------------------------------------------------
+reference_data:
+  country_groups:
+    EU: [AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE]
+    EU_EEA: [AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE, IS, LI, "NO"]
+    # Livre circulação de cidadãos da UE: UE + EEE + Suíça (acordo bilateral). REVISAR por país/regra.
+    EU_EEA_CH: [AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE, IS, LI, "NO", CH]
+    # Países de residência aceitos para voluntariado do European Solidarity Corps
+    # (fonte: https://youth.europa.eu/solidarity/faq/3_en). REVISAR.
+    ESC_PROGRAMME: [AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE, IS, LI, "NO", MK, TR]
+  fx_to_eur:                     # câmbio de REFERÊNCIA só para ordenar valores — REVISAR
+    as_of: 2026-11-19
+    approximate: true
+    rates: {EUR: 1.0, USD: 0.86, GBP: 1.16, CHF: 1.07, BRL: 0.16}
+
+# ---------------------------------------------------------------------
+# Estados Unidos: cidadania italiana NÃO concede autorização de trabalho.
+# ---------------------------------------------------------------------
+us:
+  assume_work_authorization_from_citizenship: false   # só false é aceito
+  h2_eligible_countries:
+    # Lista de nacionalidades elegíveis a H-2A/H-2B. A lista é republicada a cada ano
+    # (Federal Register/USCIS) e EXPIRA. Se vencida, o radar exige confirmação.
+    as_of: 2024-11-08
+    valid_through: 2025-11-07      # REVISAR: atualizar com a notificação mais recente
+    source_url: https://www.uscis.gov/newsroom/alerts/dhs-announces-countries-eligible-for-h-2a-and-h-2b-visa-programs
+    countries: [BR]                # só o que foi confirmado na fonte consultada; Itália NÃO confirmada
+    notes_pt: >-
+      Brasil consta na lista publicada em 8/11/2024. A presença da Itália não foi confirmada
+      nas fontes consultadas. A lista vence após 12 meses.
+
+# ---------------------------------------------------------------------
+# O que conta como fonte OFICIAL (host da URL canônica)
+# ---------------------------------------------------------------------
+official_sources:
+  domain_suffixes:
+    - .europa.eu
+    - .gov
+    - .gov.it
+    - .gob.es
+    - .gouv.fr
+    - .gv.at
+    - .bund.de
+    - .admin.ch
+    - .gov.pt
+    - .gov.ie
+    - .gov.gr
+    - .overheid.nl
+    - .belgium.be
+    - .camcom.it
+    - .gov.uk
+  domain_exact:
+    - sardegnaimpresa.eu          # agência da Região Autônoma da Sardenha
+    - eures.europa.eu
+  domain_regex:                   # prefeituras, regiões e províncias italianas
+    - '^(www\.)?(comune|regione|provincia|cittametropolitana|unione)\.[a-z0-9-]+(\.[a-z0-9-]+)*\.it$'
+    - '^(www\.)?(comune|ayuntamiento|gemeente|gemeinde)\.[a-z0-9.-]+$'
+
+# ---------------------------------------------------------------------
+# Regras de PROGRAMAS conhecidos (aplicadas além do que a IA extrair).
+# Cada regra cita a fonte oficial e um trecho curto.
+# ---------------------------------------------------------------------
+programs:
+  esc:
+    label: European Solidarity Corps
+    match_keywords: ["solidarity corps", "corpo europeo di solidarietà", "cuerpo europeo de solidaridad", "corps européen de solidarité"]
+    source_url: https://youth.europa.eu/solidarity/faq/3_en
+    checked_on: 2026-11-19
+    rules:
+      - id: esc-residence
+        kind: residence_current_any
+        values: [ESC_PROGRAMME]
+        quote: legally resident in the EU Member States
+        source_url: https://youth.europa.eu/solidarity/faq/3_en
+        reason_pt: >-
+          O voluntariado do ESC exige residência legal em país da UE ou associado.
+          Cidadania italiana não substitui residência; residindo no Brasil, não é elegível hoje.
+      - id: esc-age
+        kind: age_max
+        number: 30
+        quote: must not be older than 30 at the start of the activity
+        source_url: https://youth.europa.eu/solidarity/faq/3_is
+        reason_pt: Idade máxima de 30 anos no início da atividade (35 em ajuda humanitária).
+  h2b:
+    label: H-2B (trabalho temporário não agrícola, EUA)
+    match_keywords: ["h-2b", "h2b"]
+    source_url: https://www.uscis.gov/newsroom/alerts/dhs-announces-countries-eligible-for-h-2a-and-h-2b-visa-programs
+    checked_on: 2026-11-19
+    rules:
+      - {id: h2b-nationality, kind: h2_nationality, reason_pt: "Nacionalidade precisa constar na lista vigente de países elegíveis a H-2B."}
+  h2a:
+    label: H-2A (trabalho agrícola temporário, EUA)
+    match_keywords: ["h-2a", "h2a"]
+    source_url: https://www.uscis.gov/newsroom/alerts/dhs-announces-countries-eligible-for-h-2a-and-h-2b-visa-programs
+    checked_on: 2026-11-19
+    rules:
+      - {id: h2a-nationality, kind: h2_nationality, reason_pt: "Nacionalidade precisa constar na lista vigente de países elegíveis a H-2A."}
+  eures_tms:
+    label: EURES Targeted Mobility Scheme (ex-Your first EURES Job)
+    match_keywords: ["targeted mobility scheme", "your first eures job"]
+    source_url: https://eures.europa.eu/your-first-eures-job-whats-it-young-people-2017-09-12_en
+    checked_on: 2026-11-19
+    rules:
+      - id: eures-manual
+        kind: manual_confirmation
+        quote: unable to find a job or training opportunity in your country
+        source_url: https://eures.europa.eu/your-first-eures-job-whats-it-young-people-2017-09-12_en
+        reason_pt: >-
+          As versões do programa divergem (cidadão OU cidadão+residente; faixa etária) e exigem não
+          encontrar vaga no país de origem, algo que o radar não consegue verificar. Confirmar com um
+          consultor EURES.
+
+# ---------------------------------------------------------------------
+# Relevância (filtro barato ANTES de gastar tokens)
+# ---------------------------------------------------------------------
+relevance:
+  min_hits: 2
+  keywords:
+    it: [contributo, bando, residenza, trasferimento, spopolamento, nuovi residenti, incentivo, borsa di studio, alloggio, affitto, tirocinio, apprendistato, volontariato]
+    en: [grant, scholarship, relocation, housing, accommodation, apprenticeship, traineeship, stipend, volunteer, travel costs, free room, meals provided, wage]
+    es: [ayuda, subvención, empadronarse, repoblación, vivienda, beca, alojamiento, prácticas]
+    de: [zuschuss, förderung, ausbildung, wohnung, stipendium, unterkunft, umzug]
+    fr: [aide, subvention, logement, bourse, installation, apprentissage]
+    pt: [auxílio, bolsa, moradia, subsídio, incentivo, estágio]
+    nl: [subsidie, huisvesting, stage, leerwerktraject]
+
+# Trechos que mudam sem que o conteúdo mude (não geram nova versão)
+change_detection:
+  volatile_patterns:
+    - '(?i)ultima modifica[^\n]*'
+    - '(?i)ultimo aggiornamento[^\n]*'
+    - '(?i)last (updated|modified)[^\n]*'
+    - '(?i)\b\d[\d.]* visualizzazion[ei]\b'
+    - '(?i)\b\d[\d.,]* views?\b'
+    - '(?i)stampato il[^\n]*'
+
+# Fuso presumido por país quando o prazo não traz fuso (marcado como tz_assumed)
+timezones:
+  IT: Europe/Rome
+  ES: Europe/Madrid
+  PT: Europe/Lisbon
+  FR: Europe/Paris
+  DE: Europe/Berlin
+  AT: Europe/Vienna
+  NL: Europe/Amsterdam
+  BE: Europe/Brussels
+  LU: Europe/Luxembourg
+  IE: Europe/Dublin
+  GR: Europe/Athens
+  CY: Asia/Nicosia
+  MT: Europe/Malta
+  CH: Europe/Zurich
+  GB: Europe/London
+  PL: Europe/Warsaw
+  CZ: Europe/Prague
+  SK: Europe/Bratislava
+  HU: Europe/Budapest
+  RO: Europe/Bucharest
+  BG: Europe/Sofia
+  HR: Europe/Zagreb
+  SI: Europe/Ljubljana
+  SE: Europe/Stockholm
+  DK: Europe/Copenhagen
+  FI: Europe/Helsinki
+  "NO": Europe/Oslo               # entre aspas: NO sem aspas vira booleano no YAML
+  IS: Atlantic/Reykjavik
+  EE: Europe/Tallinn
+  LV: Europe/Riga
+  LT: Europe/Vilnius
+  US: America/New_York            # EUA têm vários fusos: sempre marcado como presumido
+
+# ---------------------------------------------------------------------
+# Pontuação (0–100). Pesos dos componentes somam 100.
+# ---------------------------------------------------------------------
+scoring:
+  # Ordem de prioridade do usuário
+  category_weights:
+    gov_relocation_incentive: 1.0      # 1) programas de governo que pagam novos moradores
+    job_with_package: 0.9              # 2) emprego com salário/alojamento/passagem/mudança
+    scholarship_or_vocational: 0.8     # 3) bolsas, cursos, programas remunerados (ensino médio)
+    youth_program_covered: 0.7         # 4) jovens com alimentação/moradia/despesas cobertas
+    other_cost_reduction: 0.5          # 5) outras formas de reduzir custos
+    unknown: 0.2
+  component_weights:
+    category_fit: 25
+    benefit_value: 25
+    eligibility: 25
+    citizenship_leverage: 10
+    evidence_quality: 10
+    deadline_window: 5
+  eligibility_factor: {eligible: 1.0, needs_confirmation: 0.5, ineligible: 0.0}
+  value_reference_eur: {low: 500, high: 20000}   # escala log entre low (0%) e high (100%)
+  ineligible_cap: 20
+  citizenship_leverage_group: EU_EEA_CH
+  deadline: {comfortable_days: 14, urgent_factor: 0.5, unknown_factor: 0.3}
+
+# ---------------------------------------------------------------------
+# Alertas
+# ---------------------------------------------------------------------
+alerts:
+  min_score: 35
+  statuses: [eligible, needs_confirmation]
+  require_official_source: true
+  require_verified_evidence: true
+  realert_on_change: true
+  urgent: {within_days: 7, require_confirmed_deadline: true, require_open_status: true}
+  channels:
+    telegram: {enabled: true}      # TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+    smtp: {enabled: true}          # SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_TO
+
+# ---------------------------------------------------------------------
+# IA: OpenAI extrai (JSON com schema), Claude audita a EVIDÊNCIA (sem dados do candidato)
+# ---------------------------------------------------------------------
+llm:
+  openai:
+    enabled: true
+    api_key_env: OPENAI_API_KEY
+    model_env: OPENAI_MODEL          # sem default: defina o modelo no ambiente
+    base_url: https://api.openai.com/v1
+    timeout_s: 60
+    max_output_tokens: 2000
+    max_retries: 3
+  anthropic:
+    enabled: true
+    api_key_env: ANTHROPIC_API_KEY
+    model_env: ANTHROPIC_MODEL
+    default_model: claude-sonnet-5-5
+    base_url: https://api.anthropic.com
+    api_version: "2023-06-01"
+    timeout_s: 60
+    max_output_tokens: 1500
+    max_retries: 3
+  audit:
+    score_threshold: 55              # audita quando a pontuação é alta…
+    on_change: true                  # …quando a fonte mudou…
+    on_conflict: true                # …ou quando há conflito/evidência não verificada
+  budget:
+    daily_usd_cap: 5.0               # só vale quando o modelo tem preço em pricing_usd_per_mtok
+    daily_token_cap: 1500000         # sempre vale
+    max_input_chars_per_document: 12000
+  pricing_usd_per_mtok: {}           # ex.: {"modelo": {input: 1.0, output: 4.0}}; vazio => custo "desconhecido"
+
+scheduler:
+  tick_seconds: 30
+  default_interval_minutes: 720
+queue:
+  max_attempts: 5
+  backoff_base_seconds: 60
+  backoff_max_seconds: 3600
+
+# ---------------------------------------------------------------------
+# Fontes. kind: seasonal_jobs_json | html_page | html_hub | pdf_document | fixture
+# tos.status: allowed | pending_review | forbidden  (só 'allowed' executa)
+# ---------------------------------------------------------------------
+sources:
+  # ---- EUA: feeds oficiais do Departamento do Trabalho (feitos para indexação por terceiros)
+  - id: us-dol-seasonaljobs-h2b
+    name: DOL SeasonalJobs — H-2B (não agrícola)
+    kind: seasonal_jobs_json
+    origin: real
+    enabled: true
+    url: https://api.seasonaljobs.dol.gov/datahub-search/sjCaseData/zip/h2b/{date}
+    country: US
+    language: en
+    interval_minutes: 1440          # feed atualiza 1x/dia (meia-noite, horário do leste)
+    rate_limit: {requests_per_minute: 2, max_requests_per_run: 2}
+    tos:
+      status: allowed
+      reviewed_on: 2026-11-19
+      note: >-
+        A página de feeds descreve a finalidade de terceiros extraírem vagas novas; não encontrei texto de
+        licença. REVISAR os termos antes de operar em produção.
+      evidence_url: https://seasonaljobs.dol.gov/feeds
+    options: {program: h2b, lookback_days: 2}
+  - id: us-dol-seasonaljobs-h2a
+    name: DOL SeasonalJobs — H-2A (agrícola; alojamento obrigatório ao trabalhador)
+    kind: seasonal_jobs_json
+    origin: real
+    enabled: true
+    url: https://api.seasonaljobs.dol.gov/datahub-search/sjCaseData/zip/h2a/{date}
+    country: US
+    language: en
+    interval_minutes: 1440
+    rate_limit: {requests_per_minute: 2, max_requests_per_run: 2}
+    tos:
+      status: allowed
+      reviewed_on: 2026-11-19
+      note: Mesma página de feeds do H-2B. REVISAR os termos antes de operar em produção.
+      evidence_url: https://seasonaljobs.dol.gov/feeds
+    options: {program: h2a, lookback_days: 2}
+
+  # ---- Itália: páginas oficiais (URLs encontradas em pesquisa; termos/robots ainda NÃO revisados)
+  - id: it-regione-sardegna-antispopolamento
+    name: Regione Sardegna — misure anti-spopolamento (hub)
+    kind: html_hub
+    origin: real
+    enabled: true
+    url: https://www.regione.sardegna.it/misure-anti-spopolamento/attivita-economiche
+    country: IT
+    language: it
+    interval_minutes: 720
+    rate_limit: {requests_per_minute: 6, max_requests_per_run: 25}
+    tos: {status: pending_review, note: "Revisar termos de uso da região antes de ativar; robots.txt é checado a cada execução."}
+    options:
+      follow_patterns: ["(?i)bonus", "(?i)contribut", "(?i)bando", "(?i)residen", "(?i)spopolament"]
+      max_links: 20
+  - id: it-regione-sicilia-nuovi-residenti
+    name: Regione Siciliana — misure per l'attrazione di nuovi residenti (PDF)
+    kind: pdf_document
+    origin: real
+    enabled: true
+    url: https://www.regione.sicilia.it/system/files/2026-08/misure_per_l-attrazione_di_nuovi_residenti.pdf.pdf
+    country: IT
+    language: it
+    interval_minutes: 1440
+    rate_limit: {requests_per_minute: 2, max_requests_per_run: 1}
+    tos: {status: pending_review, note: "Revisar termos de uso antes de ativar."}
+  - id: it-regione-toscana-residenzialita
+    name: Regione Toscana — residenzialità nei territori della Toscana diffusa (Giovanisì)
+    kind: html_page
+    origin: real
+    enabled: true
+    url: https://www.regione.toscana.it/it/-/bando-residenzialit%C3%A0-nei-territori-della-toscana-diffusa-2025-
+    country: IT
+    language: it
+    interval_minutes: 720
+    rate_limit: {requests_per_minute: 4, max_requests_per_run: 3}
+    tos: {status: pending_review, note: "Revisar termos de uso antes de ativar."}
+  - id: it-provincia-trento-affitto-periferiche
+    name: Provincia di Trento — sostegno ai canoni di locazione in zone periferiche
+    kind: html_page
+    origin: real
+    enabled: true
+    url: https://www.provincia.tn.it/Servizi/Servizi-offerti-da-altri-enti/Sostegno-al-pagamento-dei-canoni-di-locazione-in-zone-periferiche-svantaggiate-bando-2025
+    country: IT
+    language: it
+    interval_minutes: 720
+    rate_limit: {requests_per_minute: 4, max_requests_per_run: 3}
+    tos: {status: pending_review, note: "Revisar termos de uso antes de ativar."}
+
+  # ---- Regras de programas: monitora mudança na página e avisa para revisar `programs:` acima
+  - id: eu-esc-participation-rules
+    name: Portal Europeu da Juventude — regras de participação do ESC
+    kind: html_page
+    role: program_rules
+    origin: real
+    enabled: true
+    url: https://youth.europa.eu/solidarity/faq/3_en
+    country: null
+    language: en
+    interval_minutes: 1440
+    rate_limit: {requests_per_minute: 2, max_requests_per_run: 1}
+    tos: {status: pending_review, note: "Revisar termos de uso antes de ativar."}
+
+  # ---- FIXTURES: SOMENTE TESTE (RADAR_ENV=test). Nunca representam pesquisa ao vivo.
+  - id: test-fixture-rent-bonus
+    name: "[TESTE] Bônus de aluguel municipal (fixture)"
+    kind: fixture
+    origin: fixture
+    enabled: false
+    url: https://www.comune.esempio-di-prova.it/__fixture__/bonus-affitto
+    country: IT
+    language: it
+    interval_minutes: 60
+    rate_limit: {requests_per_minute: 60, max_requests_per_run: 5}
+    tos: {status: allowed, note: "Arquivo local de teste."}
+    options: {file: collector/tests/fixtures/html/rent_bonus_it.html, content_type: html}
+  - id: test-fixture-esc
+    name: "[TESTE] Colocação ESC (fixture)"
+    kind: fixture
+    origin: fixture
+    enabled: false
+    url: https://youth.europa.eu/__fixture__/solidarity-placement
+    country: IT
+    language: en
+    interval_minutes: 60
+    rate_limit: {requests_per_minute: 60, max_requests_per_run: 5}
+    tos: {status: allowed, note: "Arquivo local de teste."}
+    options: {file: collector/tests/fixtures/html/esc_placement.html, content_type: html}
+  - id: test-fixture-expired
+    name: "[TESTE] Bando vencido (fixture)"
+    kind: fixture
+    origin: fixture
+    enabled: false
+    url: https://www.regione.sardegna.it/__fixture__/bando-vencido
+    country: IT
+    language: it
+    interval_minutes: 60
+    rate_limit: {requests_per_minute: 60, max_requests_per_run: 5}
+    tos: {status: allowed, note: "Arquivo local de teste."}
+    options: {file: collector/tests/fixtures/html/expired_bando.html, content_type: html}
+  - id: test-fixture-injection
+    name: "[TESTE] Página com tentativa de prompt injection (fixture)"
+    kind: fixture
+    origin: fixture
+    enabled: false
+    url: https://www.comune.esempio-di-prova.it/__fixture__/injection
+    country: IT
+    language: en
+    interval_minutes: 60
+    rate_limit: {requests_per_minute: 60, max_requests_per_run: 5}
+    tos: {status: allowed, note: "Arquivo local de teste."}
+    options: {file: collector/tests/fixtures/html/injection_page.html, content_type: html}
